@@ -8,20 +8,22 @@ rm(list=ls())
 # =================== #
 # Required libraries
 # =================== #
-pckg <- c('readxl',         # Geographic data analysis and modelling
-          'prospectr',             # Classes and methods for spatial data 
-          'corrplot',          # Bindings for the 'Geospatial' data
-          'Boruta', # Assessment moel for agriculture soil conditions and crop suitability
+pckg <- c('readxl',         # Read Excel files
+          'prospectr',      # Spectral data pre-processing 
+          'corrplot',       # Visualization of a correlation matrix   
+          'Boruta',         # Feature selection with the Boruta algorithm
           'magrittr',       # A forward-Pipe operator for R
-          'aqp',     # Spatial analysis and modelling utilities
-          'tidyr',      # Visualizaton methods for raster data
-          'hddtools',      # Color schemes for dichromats
-          'caret',
-          'doParallel',
-          'randomForest',
-          'factoextra',
-          'psych',
-          'SuperLearner')   # ColorBrewer palettes
+          'aqp',            # Algorithms for quantitative pedology
+          'tidyr',          # Tidy Messy Data
+          'hddtools',       # Hydrological Data Discovery Tools
+          'caret',          # Classification And REgression Training
+          'doParallel',     # Foreach parallel adaptator for the 'parallel' package
+          'factoextra',     # Extract and visualize the results of multivariate data analysis
+          'FactoMineR',     # Multivariate exploratory data analysis and mining
+          'dplyr',
+          'abind',
+          'psych'          # Procedures for psychological, psychometric, and personality research
+      )   
 
 usePackage <- function(p) {
   if (!is.element(p, installed.packages()[,1]))
@@ -58,9 +60,6 @@ sites <- read_excel("G:\\My Drive\\ESALQ_USP\\REMOTE_SENSING\\PROJECT_PERNAMBUCO
 #========================================
 names(VISNIR)
 data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:47)])),MIR=I(as.matrix(MIR[-1])))
-data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:46)])),MIR=I(as.matrix(MIR[-1])))
-data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:47)])),MIR=I(as.matrix(MIR[-1])))
-data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:46)])),MIR=I(as.matrix(MIR[-1])))
 str(data1)
 colnames(data1$VISNIR) <- gsub("X", "", colnames(data1$VISNIR))
 colnames(data1$MIR) <- gsub("X", "", colnames(data1$MIR))
@@ -139,16 +138,16 @@ fviz_pca_var(PCAVISNIR,
 # -------------------------------------------------------- #
 # Data preparation for features selection (RFE and Boruta)
 # -------------------------------------------------------- #
-VISNIRcr <- matrix(data1$VISNIRcr,
-       nrow=dim(data1$VISNIRcr)[1],
-       ncol=dim(data1$VISNIRcr)[2]) %>% data.frame
+VISNIRcr <- matrix(data1$VISNIR,
+       nrow=dim(data1$VISNIR)[1],
+       ncol=dim(data1$VISNIR)[2]) %>% data.frame
 colnames(VISNIRcr) <- wavvnir
 data2 <- data.frame(ORDER=as.factor(VISNIR$ORDER),VISNIRcr)
 
 
-MIRcr <- matrix(data1$MIRcr,
-                nrow=dim(data1$MIRcr)[1],
-                ncol=dim(data1$MIRcr)[2]) %>% data.frame
+MIRcr <- matrix(data1$MIR,
+                nrow=dim(data1$MIR)[1],
+                ncol=dim(data1$MIR)[2]) %>% data.frame
 colnames(MIRcr) <- wavmir
 data3 <- data.frame(ORDER=as.factor(VISNIR$ORDER),MIRcr)
 dim(data3)
@@ -156,8 +155,10 @@ sapply(data3, function(x) sum(is.na(x)))
 data3 <- data3[ , colSums(is.na(data3)) == 0]
 
 
-library(dplyr)
-##Features selection --> Recursive Features Elimination Algorithm
+
+# ---------- #
+# RFE
+# ---------- #
 start <- Sys.time()
 cl <- makeCluster(detectCores(), type='PSOCK')
 registerDoParallel(cl)
@@ -207,7 +208,7 @@ dim(data3)
 # Outer product VISNIR x MIR
 #============================ #
 
-dim(data2)
+str(data2)
 dim(data3)
 
 samples <- 1:70
@@ -219,10 +220,13 @@ for (i in 1:length(samples)) {
   opa <- abind(opa,temp,along=3) 
 }
 opa
-# dim(opa)
+dim(opa)
 # class(opa)
 # opa[,,70]
 
+# =========================== #
+# Unfold OPA matrix
+#============================ #
 opafinal <- c()
 for (i in 1:length(samples)) {
   temp <- c(opa[,,i])
@@ -231,14 +235,34 @@ for (i in 1:length(samples)) {
 class(opafinal)
 dim(opafinal)
 
+# ====================================== #
+# Hierarchical clustering
+# ====================================== #
+
+
+# ------------------------------------ #
+# Option 1 - Hierarchical Clustering
+# ------------------------------------ #
 dist <- dist(df2[,-1])
 hc <- hclust(dist,"ward.D")
 plot(hc)
 
-library(FactoMineR)
+# ------------------------------------------ #
+# Option 2 - Hierarchical clustering on PCA
+# ------------------------------------------ #
 
+#Computing median by profile ID and then perform HCPCA
+df <- cbind(profileID=VISNIR$profileID,data.frame(opafinal)) %>% data.frame()
+str(df)
+names(df)
+df <- as_tibble(df)
+df2 <- df %>%
+  group_by(profileID ) %>%
+  summarise(across(where(is.numeric), median, na.rm= TRUE)) %>% data.frame
+dim(df2)
 
 View(df2)
+
 # Compute PCA with ncp = 3
 res.pca <- PCA(df2[,-1], ncp = 3, graph = FALSE)
 # Compute hierarchical clustering on principal components
@@ -258,11 +282,4 @@ fviz_cluster(res.hcpc,
              main = "Factor map"
 )
 
-df <- cbind(profileID=VISNIR$profileID,data.frame(opafinal)) %>% data.frame()
-str(df)
-names(df)
-df <- as_tibble(df)
-df2 <- df %>%
-  group_by(profileID ) %>%
-  summarise(across(where(is.numeric), median, na.rm= TRUE)) %>% data.frame
-dim(df2)
+ 
