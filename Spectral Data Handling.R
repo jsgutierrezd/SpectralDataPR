@@ -57,16 +57,16 @@ sites <- read_excel("G:\\My Drive\\ESALQ_USP\\REMOTE_SENSING\\PROJECT_PERNAMBUCO
 ## Matrix embedding into data frames
 #========================================
 names(VISNIR)
-
 data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:47)])),MIR=I(as.matrix(MIR[-1])))
-
 data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:46)])),MIR=I(as.matrix(MIR[-1])))
-
+data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:47)])),MIR=I(as.matrix(MIR[-1])))
+data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:46)])),MIR=I(as.matrix(MIR[-1])))
 str(data1)
 colnames(data1$VISNIR) <- gsub("X", "", colnames(data1$VISNIR))
 colnames(data1$MIR) <- gsub("X", "", colnames(data1$MIR))
 wavmir <- as.numeric(c(colnames(data1$MIR)))
 wavvnir <- as.numeric(c(colnames(data1$VISNIR)))
+
 
 
 # ========================================== #
@@ -112,7 +112,6 @@ matplot(wavmir,t(data1$MIRabs[1:70,]),type='l',ylim=c(0,15),xlab='Wavenumber (cm
 # Features selection
 # =============================== #
 
-
 # ---------- #
 # PCA
 # ---------- #
@@ -139,7 +138,23 @@ fviz_pca_var(PCAVISNIR,
 # ---------- #
 # RFE
 # ---------- #
+names(VISNIR)
+data2 <- data.frame(ORDER=as.factor(VISNIR$ORDER),VISNIR[,48:dim(VISNIR)[2]])
 
+dim(data2)
+names(data2)
+str(data2)
+
+
+##Features selection --> Recursive Features Elimination Algorithm
+start <- Sys.time()
+cl <- makeCluster(detectCores(), type='PSOCK')
+registerDoParallel(cl)
+control2 <- rfeControl(functions=rfFuncs, method="repeatedcv", number=5, repeats=5)
+(rfmodel <- rfe(x=data2[,-1], y=data2[,1], sizes=c(1:5), rfeControl=control2))
+plot(rfmodel, type=c("g", "o"))
+predictors(rfmodel)[1:5]
+print(Sys.time() - start)
 
 
 
