@@ -206,9 +206,35 @@ dim(data3)
 # =========================== #
 # Outer product VISNIR x MIR
 #============================ #
-data2 <- as.matrix(data2)
-str(data2)
-x <- t(as.matrix(data2))
-y <- as.matrix(data3)
-z <- x %o% y
-z
+
+dim(data2)
+dim(data3)
+
+samples <- 1:70
+
+opa <- c()
+for (i in 1:length(samples)) {
+  z<- as.matrix(data2[i,],1)%o%as.matrix(data3[i,],1)
+  temp<- matrix(z,nrow = ncol(data2),ncol=ncol(data3),byrow = T)
+  opa <- abind(opa,temp,along=3) 
+}
+opa
+# dim(opa)
+# class(opa)
+# opa[,,70]
+
+opafinal <- c()
+for (i in 1:length(samples)) {
+  temp <- c(opa[,,i])
+  opafinal <- rbind(opafinal,temp)
+}
+class(opafinal)
+dim(opafinal)
+
+pcaopafinal <- prcomp(opafinal, scale. = F)
+summary(pcaopafinal)
+
+fviz_eig(pcaopafinal)   #To select the number of optimal PCs
+summary(pcaopafinal)
+
+
