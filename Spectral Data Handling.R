@@ -231,10 +231,38 @@ for (i in 1:length(samples)) {
 class(opafinal)
 dim(opafinal)
 
-pcaopafinal <- prcomp(opafinal, scale. = F)
-summary(pcaopafinal)
+dist <- dist(df2[,-1])
+hc <- hclust(dist,"ward.D")
+plot(hc)
 
-fviz_eig(pcaopafinal)   #To select the number of optimal PCs
-summary(pcaopafinal)
+library(FactoMineR)
 
 
+View(df2)
+# Compute PCA with ncp = 3
+res.pca <- PCA(df2[,-1], ncp = 3, graph = FALSE)
+# Compute hierarchical clustering on principal components
+res.hcpc <- HCPC(res.pca,nb.clust = -1, graph = FALSE)
+fviz_dend(res.hcpc, 
+          cex = 0.7,                     # Label size
+          palette = "jco",               # Color palette see ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Add rectangle around groups
+          rect_border = "jco",           # Rectangle color
+          labels_track_height = 0.8      # Augment the room for labels
+)
+fviz_cluster(res.hcpc,
+             repel = TRUE,            # Avoid label overlapping
+             show.clust.cent = TRUE, # Show cluster centers
+             palette = "jco",         # Color palette see ?ggpubr::ggpar
+             ggtheme = theme_minimal(),
+             main = "Factor map"
+)
+
+df <- cbind(profileID=VISNIR$profileID,data.frame(opafinal)) %>% data.frame()
+str(df)
+names(df)
+df <- as_tibble(df)
+df2 <- df %>%
+  group_by(profileID ) %>%
+  summarise(across(where(is.numeric), median, na.rm= TRUE)) %>% data.frame
+dim(df2)
