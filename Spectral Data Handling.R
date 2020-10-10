@@ -1,8 +1,14 @@
+
 rm(list=ls())
 # =================== #
 # Required libraries
 # =================== #
-pckg <- c('readxl',         # Read cel files
+
+
+# =================== #
+# Required libraries
+# =================== #
+pckg <- c('readxl',         # Geographic data analysis and modelling
           'prospectr',             # Classes and methods for spatial data 
           'corrplot',          # Bindings for the 'Geospatial' data
           'Boruta', # Assessment moel for agriculture soil conditions and crop suitability
@@ -51,7 +57,11 @@ sites <- read_excel("G:\\My Drive\\ESALQ_USP\\REMOTE_SENSING\\PROJECT_PERNAMBUCO
 ## Matrix embedding into data frames
 #========================================
 names(VISNIR)
+
 data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:47)])),MIR=I(as.matrix(MIR[-1])))
+
+data1 <- cbind(VISNIR[1:47], VISNIR = I(as.matrix(VISNIR[-c(1:46)])),MIR=I(as.matrix(MIR[-1])))
+
 str(data1)
 colnames(data1$VISNIR) <- gsub("X", "", colnames(data1$VISNIR))
 colnames(data1$MIR) <- gsub("X", "", colnames(data1$MIR))
@@ -137,3 +147,4 @@ fviz_pca_var(PCAVISNIR,
 # ---------- #
 # Boruta
 # ---------- #
+
