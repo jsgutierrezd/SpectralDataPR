@@ -91,9 +91,10 @@ matplot(wavvnir,t(data1$VISNIRabs[1:70,]),type='l',ylim=c(0,20),xlab='Wavenumber
 # ========================================== #
 # Soil spectral data pre-processing MIR
 # ========================================== #
+
 # 1) Continuum removal
 data1$MIRcr <- continuumRemoval(data1$MIR,wavmir,type='R')##Adding new columns to the previous data frame
-matplot(wavmir,t(data1$MIRcr[1:70,]),type='l',ylim=c(0,15),xlab='Wavenumber (cm-1)',ylab='Reflectance')
+matplot(wavmir,t(data1$MIRcr[1:70,]),type='l',ylim=c(0,100),xlab='Wavenumber (cm-1)',ylab='Reflectance')
 #matlines(as.numeric(colnames(data1$VISNIR)), t(data1$VISNIR[1:10, ]))
 
 
@@ -116,7 +117,7 @@ matplot(wavmir,t(data1$MIRabs[1:70,]),type='l',ylim=c(0,15),xlab='Wavenumber (cm
 # PCA
 # ---------- #
 #PCA of Vis-Nir  with Principal Component Analysis#
-PCAVISNIR <- prcomp(data1$VISNIRkm, scale. = F)  #select only Vis-Nir and MIR bands
+PCAVISNIR <- prcomp(data1$VISNIRcr, scale. = F)  #select only Vis-Nir and MIR bands
 ##Plot PCAs
 fviz_eig(PCAVISNIR)   #To select the number of optimal PCs
 summary(PCAVISNIR)
@@ -135,23 +136,33 @@ fviz_pca_var(PCAVISNIR,
 (corvar <- PCAVISNIR$rotation %*% diag(PCAVISNIR$sdev))# loadings
 
 
-# ---------- #
-# RFE
-# ---------- #
-names(VISNIR)
-data2 <- data.frame(ORDER=as.factor(VISNIR$ORDER),VISNIR[,48:dim(VISNIR)[2]])
+# -------------------------------------------------------- #
+# Data preparation for features selection (RFE and Boruta)
+# -------------------------------------------------------- #
+VISNIRcr <- matrix(data1$VISNIRcr,
+       nrow=dim(data1$VISNIRcr)[1],
+       ncol=dim(data1$VISNIRcr)[2]) %>% data.frame
+colnames(VISNIRcr) <- wavvnir
+data2 <- data.frame(ORDER=as.factor(VISNIR$ORDER),VISNIRcr)
 
-dim(data2)
-names(data2)
-str(data2)
+
+MIRcr <- matrix(data1$MIRcr,
+                nrow=dim(data1$MIRcr)[1],
+                ncol=dim(data1$MIRcr)[2]) %>% data.frame
+colnames(MIRcr) <- wavmir
+data3 <- data.frame(ORDER=as.factor(VISNIR$ORDER),MIRcr)
+dim(data3)
+sapply(data3, function(x) sum(is.na(x)))
+data3 <- data3[ , colSums(is.na(data3)) == 0]
 
 
+library(dplyr)
 ##Features selection --> Recursive Features Elimination Algorithm
 start <- Sys.time()
 cl <- makeCluster(detectCores(), type='PSOCK')
 registerDoParallel(cl)
 control2 <- rfeControl(functions=rfFuncs, method="repeatedcv", number=5, repeats=5)
-(rfmodel <- rfe(x=data2[,-1], y=data2[,1], sizes=c(1:5), rfeControl=control2))
+(rfmodel <- rfe(x=data2[,-1], y=data2[,1], sizes=c(1:10), rfeControl=control2))
 plot(rfmodel, type=c("g", "o"))
 predictors(rfmodel)[1:5]
 print(Sys.time() - start)
@@ -162,4 +173,42 @@ print(Sys.time() - start)
 # ---------- #
 # Boruta
 # ---------- #
+start <- Sys.time()
+(bor <- Boruta(ORDER ~ ., data = data3, doTrace = 0, ntree = 500,maxRuns=100,))
+plot(bor, xlab = "", xaxt = "n")
+lz<-lapply(1:ncol(bor$ImpHistory),function(i)
+  bor$ImpHistory[is.finite(bor$ImpHistory[,i]),i])
+names(lz) <- colnames(bor$ImpHistory)
+Labels <- sort(sapply(lz,median))
+axis(side = 1,las=2,labels = names(Labels),
+     at = 1:ncol(bor$ImpHistory), cex.axis = 0.7)
+print(Sys.time() - start)
 
+print(bor)
+names(bor$finalDecision[bor$finalDecision %in% c("Confirmed")])
+
+final.bor<-TentativeRoughFix(bor)
+print(final.bor)
+
+getConfirmedFormula(final.bor)
+namesdef<-names(final.bor$finalDecision[final.bor$finalDecision %in% c("Confirmed")])
+namesdef
+
+
+data2 <- data2[,namesdef]
+names(data2)
+dim(data2)
+
+data3 <- data3[,namesdef] 
+names(data3)
+dim(data3)
+
+# =========================== #
+# Outer product VISNIR x MIR
+#============================ #
+data2 <- as.matrix(data2)
+str(data2)
+x <- t(as.matrix(data2))
+y <- as.matrix(data3)
+z <- x %o% y
+z
