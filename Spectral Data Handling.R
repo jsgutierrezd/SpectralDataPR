@@ -138,16 +138,16 @@ fviz_pca_var(PCAVISNIR,
 # -------------------------------------------------------- #
 # Data preparation for features selection (RFE and Boruta)
 # -------------------------------------------------------- #
-VISNIRcr <- matrix(data1$VISNIR,
-       nrow=dim(data1$VISNIR)[1],
-       ncol=dim(data1$VISNIR)[2]) %>% data.frame
+VISNIRcr <- matrix(data1$VISNIRcr,
+       nrow=dim(data1$VISNIRcr)[1],
+       ncol=dim(data1$VISNIRcr)[2]) %>% data.frame
 colnames(VISNIRcr) <- wavvnir
 data2 <- data.frame(ORDER=as.factor(VISNIR$ORDER),VISNIRcr)
 
 
-MIRcr <- matrix(data1$MIR,
-                nrow=dim(data1$MIR)[1],
-                ncol=dim(data1$MIR)[2]) %>% data.frame
+MIRcr <- matrix(data1$MIRcr,
+                nrow=dim(data1$MIRcr)[1],
+                ncol=dim(data1$MIRcr)[2]) %>% data.frame
 colnames(MIRcr) <- wavmir
 data3 <- data.frame(ORDER=as.factor(VISNIR$ORDER),MIRcr)
 dim(data3)
@@ -264,9 +264,9 @@ dim(df2)
 View(df2)
 
 # Compute PCA with ncp = 3
-res.pca <- PCA(df2[,-1], ncp = 3, graph = FALSE)
+res.pca <- PCA(df2[,-1], ncp = 3, graph = T)
 # Compute hierarchical clustering on principal components
-res.hcpc <- HCPC(res.pca,nb.clust = -1, graph = FALSE)
+res.hcpc <- HCPC(res.pca,nb.clust = -1, graph = T)
 fviz_dend(res.hcpc, 
           cex = 0.7,                     # Label size
           palette = "jco",               # Color palette see ?ggpubr::ggpar
